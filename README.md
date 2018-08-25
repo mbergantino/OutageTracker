@@ -22,14 +22,16 @@ EthernetServer eServer(80);    // Specifying what port the Web Service will list
 
 ## Usage
 
-THe Web Service listens for connections at the following endpoints:
+The Web Service listens for http GET requests at the following endpoints:
+```c
+ - /        shows the History Log
+ - /log     shows the History Log
+ - /reset   recreates the History Log file anew
+ - /test1   initiates a test outage for 30sec
+ - /test2   initiates a test outage for 5min 30sec
+```
+For example, if the Teensy gets IP 192.168.0.2, loading 'http://192.168.0.2/log' in a browser from a machine on the same network will show the History Log file.
 
- - / shows the History Log
- - /log shows the History Log
- - /reset recreates the History Log file anew
- - /test1 initiates a test outage for 30sec
- - /test2 initiates a test outage for 5min 30sec
- 
  
 ## Parts List
 
