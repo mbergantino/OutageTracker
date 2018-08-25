@@ -52,7 +52,7 @@ const String fullLog  = "outage.log";       // Permanent log file
 void setup() {
   // General setup
   Serial.begin(9600);
-  while (!Serial) ; // wait for serial port to connect. Needed for Leonardo only.
+  while (!Serial) ;                         // wait for serial port to connect. Needed for Leonardo only.
   delay(250);
 
   Serial.println("Outage Tracker Starting Up");
@@ -109,19 +109,19 @@ void setup() {
   if (myFile) {
     Serial.print("Testing write to the SD card...");   	// if the file opened okay, write to it
     myFile.print("I'm writing already calm down...");
-	myFile.println(assembleTime(now()));
+    myFile.println(assembleTime(now()));
     myFile.close();                                     // close the file, so we can open others
-	SD.remove(startFile.c_str());
+    SD.remove(startFile.c_str());
 	
     // Create History File If It Does Not Already Exist
     recreateHistoryFile(false);
-	Serial.println("SD Card initialization done.");
+    Serial.println("SD Card initialization done.");
   }
   else {
     // If the file didn't open, print an error (would prefer a try/catch, but not available)
     Serial.print("SD initialization failed to write to card! ");
-	  Serial.println(startFile);
-	  return;
+    Serial.println(startFile);
+    return;
   }
   
   // Check if we're on Battery Backup or if power is on/restored
@@ -130,14 +130,14 @@ void setup() {
   
   // When starting up following an outage, if the temp outage file exists assume we were in an outage when power failed
   if (SD.exists(tmpFile.c_str())) {  								
-	  if (digitalRead(backupPin) == LOW) {				        // Read from the digital pin (returns either HIGH or LOW)
-	    //coming out of the outage
-	    outageFinished();
-	  }
-	  else {
-	    // Still in the outage
-	    onBB = true;
-	  }
+    if (digitalRead(backupPin) == LOW) {				        // Read from the digital pin (returns either HIGH or LOW)
+      //coming out of the outage
+      outageFinished();
+    }
+    else {
+      // Still in the outage
+      onBB = true;
+    }
   }
   
   Serial.println("All Setup Processes Completed Successfully!");
@@ -172,25 +172,25 @@ void checkOutageStatus() {
     // We just came off battery backup power, so stop the timer and record outage event
     boolean leaseExpired = outageFinished();
 	
-	// If outside of lease time window, restart the network connection completely (for DHCP only)
-	// Don't worry about lease renewal here, because it's the next operation that will happen in loop
+    // If outside of lease time window, restart the network connection completely (for DHCP only)
+    // Don't worry about lease renewal here, because it's the next operation that will happen in loop
     if (dhcpEnabled && leaseExpired) {
-	  while (Ethernet.begin(mac) == 0) {
+      while (Ethernet.begin(mac) == 0) {
         // Retries to account for when the router is starting up after an outage too
         Serial.println("Failed to establish communication with the router. Retrying in 10 seconds...");
         delay(10000); //msec
       }
-	}
+    }
 	
-	// Clear the flag
-	onBB = false;
+    // Clear the flag
+    onBB = false;
   }
   else if (digitalRead(backupPin) == HIGH && !onBB) {
     // We just went on battery backup power, so start a timer
     outageStarting();
 	
-	// Set the flag
-	onBB = true;
+    // Set the flag
+    onBB = true;
   }
 }
 
@@ -215,21 +215,22 @@ bool outageFinished() {
   
   // Local var takes precedence over temp file
   if (outageStarted == 0) {
-	  if (!SD.exists(tmpFile.c_str())) {
-	    Serial.println("ERROR: Trying to record an event without a start time.");
-	    return false;
-	  }
+    if (!SD.exists(tmpFile.c_str())) {
+      Serial.println("ERROR: Trying to record an event without a start time.");
+      return false;
+    }
 	
-	  // Read from temp file
-	  File myFile = SD.open(tmpFile.c_str(), FILE_READ);
-	  outageStarted = myFile.read();
-	  myFile.close();
+    // Read from temp file
+    File myFile = SD.open(tmpFile.c_str(), FILE_READ);
+    outageStarted = myFile.read();
+    myFile.close();
   }
   
   // Write same to long term log
   File myFile = SD.open(fullLog.c_str(), FILE_WRITE); 	// Again note: we can only open one file at a time
-  String message = "Outage Event - Started: "+assembleTime(outageStarted)+" Ended: "+assembleTime(outageEnded)+
-                   " Duration: "+breakoutTime(outageEnded-outageStarted)+"<br>";
+  String message = "Outage Event - Started: " + assembleTime(outageStarted) +
+	           " Ended: " + assembleTime(outageEnded) +
+                   " Duration: " + breakoutTime(outageEnded-outageStarted) + "<br>";
   Serial.println(message);
   myFile.println(message);
   myFile.close();
@@ -244,7 +245,7 @@ bool outageFinished() {
   
   // Determine if the lease would have expired
   if (dhcpEnabled) {
-	return (outageEnded-outageStarted) > leaseTime*60;
+    return (outageEnded-outageStarted) > leaseTime*60;
   }
   
   return false;
@@ -333,7 +334,7 @@ void webServerService() {
           // a text character was received from client
           currentLineIsBlank = false;
 		  
-		  //read char by char HTTP request
+          //read char by char HTTP request
           if (requestUrl.length() < 100) {
             requestUrl += c;  //store characters to string 
           }
@@ -341,17 +342,17 @@ void webServerService() {
       }
     }
 	
-	// Send web page content
-  if (requestUrl.length() != 0 && requestUrl.startsWith("GET")) {
-    requestUrl = requestUrl.substring(4,requestUrl.length());     // Remove "GET " from the front
-    requestUrl = requestUrl.substring(0,requestUrl.indexOf(" ")); // Trim at the space
-  }
-	Serial.print("Request URL: ");
-	Serial.println(requestUrl);
-	// For any blank or request that asks for the "log" file we'll feed it up
-	if ( requestUrl.length() == 0 || 
-	     requestUrl.toLowerCase().indexOf("get / ") != -1 || 
-	     requestUrl.toLowerCase().indexOf("log") != -1) {
+    // Send web page content
+    if (requestUrl.length() != 0 && requestUrl.startsWith("GET")) {
+      requestUrl = requestUrl.substring(4,requestUrl.length());     // Remove "GET " from the front
+      requestUrl = requestUrl.substring(0,requestUrl.indexOf(" ")); // Trim at the space
+    }
+    Serial.print("Request URL: ");
+    Serial.println(requestUrl);
+    // For any blank or request that asks for the "log" file we'll feed it up
+    if ( requestUrl.length() == 0 || 
+      requestUrl.toLowerCase().indexOf("get / ") != -1 || 
+      requestUrl.toLowerCase().indexOf("log") != -1) {
       File webFile = SD.open(fullLog.c_str(), FILE_READ);        // open web page file
       if (webFile) {
         while(webFile.available()) {
@@ -363,11 +364,11 @@ void webServerService() {
         Serial.println("File not found!");
         client.println("HTTP/1.1 404 NOT FOUND");
       }
-	  }
-	  // For any request that asks to "reset" the log file we'll recreate it fresh
-	  else if ( requestUrl.toLowerCase().indexOf("reset") != -1) {
-		  recreateHistoryFile(true);
-	  }
+    }
+    // For any request that asks to "reset" the log file we'll recreate it fresh
+    else if ( requestUrl.toLowerCase().indexOf("reset") != -1) {
+      recreateHistoryFile(true);
+    }
 	
     delay(250);                                         // give the web browser time to receive the data
     client.stop();                                      // close the connection
@@ -378,11 +379,11 @@ void webServerService() {
 void recreateHistoryFile(boolean createAnew) {
   // Create new History Log if it doesn't already exist or if explicitly told
   if (createAnew || !SD.exists(fullLog.c_str())) {
-	if (SD.exists(fullLog.c_str())) {
+    if (SD.exists(fullLog.c_str())) {
       SD.remove(fullLog.c_str());
-	}
+    }
 	
-	File myFile = SD.open(fullLog.c_str(), FILE_WRITE);
+    File myFile = SD.open(fullLog.c_str(), FILE_WRITE);
     myFile.println("Outage Tracker Log Event History<br>");
     myFile.println("********************************<br>");
     myFile.close();
@@ -411,11 +412,11 @@ time_t getNtpTime() {
         secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
         secsSince1900 |= (unsigned long)packetBuffer[43];
 		
-		// Check if we need to enable/disable DST
-		if (adjustForDST) {
-		  long utcEpoch = secsSince1900 - 2208988800UL;
-		  dstCheck(utcEpoch);
-		}
+        // Check if we need to enable/disable DST
+        if (adjustForDST) {
+          long utcEpoch = secsSince1900 - 2208988800UL;
+          dstCheck(utcEpoch);
+        }
 
         return secsSince1900 - 2208988800UL + ((TIMEZONE + dstAdjustment) * SECS_PER_HOUR);
       }
