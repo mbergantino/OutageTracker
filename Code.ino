@@ -1,9 +1,3 @@
-/*
- * Developed by Matthew Bergantino
- * in August 2018
- * 
- */
-
 //Interrupt Dependencies
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -25,12 +19,12 @@ boolean onBB          = false;              // flag to indicate when we're on Ba
 // NTP Vars
 IPAddress timeServer(204,9,54,119);         // pool.ntp.org (204.9.54.119)
 const int NTP_PACKET_SIZE = 48;             // NTP time is in the first 48 bytes of message
-byte packetBuffer[NTP_PACKET_SIZE];       	// Buffer to hold incoming & outgoing packets
+byte packetBuffer[NTP_PACKET_SIZE];         // Buffer to hold incoming & outgoing packets
 
 // Network Vars
 EthernetUDP Udp;
 byte mac[]={0xDE,0xAD,0xFE,0xED,0xBE,0xEF}; // NIC's MAC Address
-unsigned int localPort = 8888;             	// local port to listen for UDP packets
+unsigned int localPort = 8888;              // local port to listen for UDP packets
 boolean WIZ820io       = true;              // flag to indicate if we are using the WIZ820io (vs the WIZ850io)
 boolean webService     = true;              // true = Web Server On, false = ignore connections
 EthernetServer eServer(80);                 // setup web server to listen on port 80
@@ -43,11 +37,11 @@ IPAddress subnet(255, 255, 255, 0);         // Subnet Mask
 
 // Time Vars
 const int UPDATE_FREQ = SECS_PER_HOUR;      // Frequency to update System Time (default: once per hour)
-const int TIMEZONE    = -5;                	// Eastern Standard Time (USA) ... go Red Sox
+const int TIMEZONE    = -5;                 // Eastern Standard Time (USA) ... go Red Sox
 boolean adjustForDST  = true;               // true = update on a schedule to +1 to TIMEZONE
 int dstAdjustment     = 0;                  // DST adjustment
-time_t lastUpdate     = 0;                 	// when the digital clock was last udpated
-time_t outageStarted  = 0;                 	// when the outage began
+time_t lastUpdate     = 0;                  // when the digital clock was last udpated
+time_t outageStarted  = 0;                  // when the outage began
 
 // SD Vars
 const int chipSelect  = 4;                  // Wiz820+SD board: Pin 4
