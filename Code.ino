@@ -16,12 +16,12 @@
 const int backupPin   = 0;                  // Pin that Backup signal is attached to (MAX1555 module uses Pin 0)
 boolean onBB          = false;              // flag to indicate when we're on Battery Backup power
 
-// NTP Vars
+//NTP Vars
 IPAddress timeServer(204,9,54,119);         // pool.ntp.org (204.9.54.119)
 const int NTP_PACKET_SIZE = 48;             // NTP time is in the first 48 bytes of message
 byte packetBuffer[NTP_PACKET_SIZE];         // Buffer to hold incoming & outgoing packets
 
-// Network Vars
+//Network Vars
 EthernetUDP Udp;
 byte mac[]={0xDE,0xAD,0xFE,0xED,0xBE,0xEF}; // NIC's MAC Address
 unsigned int localPort = 8888;              // local port to listen for UDP packets
@@ -35,7 +35,7 @@ IPAddress dnserver(192, 168, 0, 1);         // DNS server ip
 IPAddress gateway(192, 168, 0, 1);          // Router's gateway address
 IPAddress subnet(255, 255, 255, 0);         // Subnet Mask
 
-// Time Vars
+//Time Vars
 const int UPDATE_FREQ = SECS_PER_HOUR;      // Frequency to update System Time (default: once per hour)
 const int TIMEZONE    = -5;                 // Eastern Standard Time (USA) ... go Red Sox
 boolean adjustForDST  = true;               // true = update on a schedule to +1 to TIMEZONE
@@ -43,11 +43,13 @@ int dstAdjustment     = 0;                  // DST adjustment
 time_t lastUpdate     = 0;                  // when the digital clock was last udpated
 time_t outageStarted  = 0;                  // when the outage began
 
-// SD Vars
+//SD Vars
 const int chipSelect  = 4;                  // Wiz820+SD board: Pin 4
 const String tmpFile = "out.tmp";           // temp file used during an outage
 const String fullLog  = "outage.log";       // Permanent log file
 
+//Testing Vars
+int test = 0;                               // Test 1 = 30sec outage, Test 2 = 5min 30sec outage
 
 void setup() {
   // General setup
@@ -107,12 +109,12 @@ void setup() {
   // NOTE: We can only open one file at a time!
   File myFile = SD.open(startFile.c_str(), FILE_WRITE);  
   if (myFile) {
-    Serial.print("Testing write to the SD card...");   	// if the file opened okay, write to it
+    Serial.print("Testing write to the SD card...");     // if the file opened okay, write to it
     myFile.print("I'm writing already calm down...");
     myFile.println(assembleTime(now()));
     myFile.close();                                     // close the file, so we can open others
     SD.remove(startFile.c_str());
-	
+  
     // Create History File If It Does Not Already Exist
     recreateHistoryFile(false);
     Serial.println("SD Card initialization done.");
@@ -126,11 +128,11 @@ void setup() {
   
   // Check if we're on Battery Backup or if power is on/restored
   Serial.println("Initializing power restoration logic...");
-  pinMode(backupPin, INPUT);        					          // Sets the digital pin as input
+  pinMode(backupPin, INPUT);                            // Sets the digital pin as input
   
   // When starting up following an outage, if the temp outage file exists assume we were in an outage when power failed
-  if (SD.exists(tmpFile.c_str())) {  								
-    if (digitalRead(backupPin) == LOW) {				        // Read from the digital pin (returns either HIGH or LOW)
+  if (SD.exists(tmpFile.c_str())) {                 
+    if (digitalRead(backupPin) == LOW) {                // Read from the digital pin (returns either HIGH or LOW)
       //coming out of the outage
       outageFinished();
     }
@@ -147,7 +149,7 @@ void loop() {
   // Process interrupts here as opposed to when Pin state is changing as we have ~infinite time here
   checkOutageStatus();
 
-  // Renew lease from DHCP server
+  // When on line power, renew DHCP lease
   if (!onBB && dhcpEnabled) {
     Ethernet.maintain();
   }
@@ -168,10 +170,18 @@ void loop() {
 }
 
 void checkOutageStatus() {
-  if (digitalRead(backupPin) == LOW && onBB) {
+  // If testing is in progress (but not finished) keep looping
+  if ( test == 1 && onBB && ((now()-outageStarted) < 30) ) { // 30 second outage
+    return;
+  }
+  if ( test == 2 && onBB && ((now()-outageStarted) < (5*60+30)) ) { //5min 30sec outage
+    return;
+  }
+  
+  if ( (digitalRead(backupPin) == LOW || test != 0) && onBB ) {
     // We just came off battery backup power, so stop the timer and record outage event
     boolean leaseExpired = outageFinished();
-	
+  
     // If outside of lease time window, restart the network connection completely (for DHCP only)
     // Don't worry about lease renewal here, because it's the next operation that will happen in loop
     if (dhcpEnabled && leaseExpired) {
@@ -181,14 +191,18 @@ void checkOutageStatus() {
         delay(10000); //msec
       }
     }
-	
+
+    // Test finished. Reset flag.
+    if (test != 0)
+      test = 0;
+  
     // Clear the flag
     onBB = false;
   }
-  else if (digitalRead(backupPin) == HIGH && !onBB) {
+  else if ( (digitalRead(backupPin) == HIGH || test != 0) && !onBB) {
     // We just went on battery backup power, so start a timer
     outageStarting();
-	
+  
     // Set the flag
     onBB = true;
   }
@@ -219,7 +233,7 @@ bool outageFinished() {
       Serial.println("ERROR: Trying to record an event without a start time.");
       return false;
     }
-	
+  
     // Read from temp file
     File myFile = SD.open(tmpFile.c_str(), FILE_READ);
     outageStarted = myFile.read();
@@ -227,14 +241,14 @@ bool outageFinished() {
   }
   
   // Write same to long term log
-  File myFile = SD.open(fullLog.c_str(), FILE_WRITE); 	// Again note: we can only open one file at a time
+  File myFile = SD.open(fullLog.c_str(), FILE_WRITE);   // Again note: we can only open one file at a time
   String message = "Outage Event - Started: " + assembleTime(outageStarted) +
-	           " Ended: " + assembleTime(outageEnded) +
+             " Ended: " + assembleTime(outageEnded) +
                    " Duration: " + breakoutTime(outageEnded-outageStarted) + "<br>";
   Serial.println(message);
   myFile.println(message);
   myFile.close();
-	
+  
   // Clear tracker
   outageStarted = 0;
   
@@ -312,7 +326,7 @@ void webServerService() {
     while (client.connected()) {
       if (client.available()) {                         // client data available to read
         char c = client.read();                         // read 1 byte (character) from client
-		
+    
         // last line of client request is blank and ends with \n
         // respond to client only after last line received
         if (c == '\n' && currentLineIsBlank) {
@@ -333,7 +347,7 @@ void webServerService() {
         else if (c != '\r') {
           // a text character was received from client
           currentLineIsBlank = false;
-		  
+      
           //read char by char HTTP request
           if (requestUrl.length() < 100) {
             requestUrl += c;  //store characters to string 
@@ -341,7 +355,7 @@ void webServerService() {
         }
       }
     }
-	
+  
     // Send web page content
     if (requestUrl.length() != 0 && requestUrl.startsWith("GET")) {
       requestUrl = requestUrl.substring(4,requestUrl.length());     // Remove "GET " from the front
@@ -368,8 +382,22 @@ void webServerService() {
     // For any request that asks to "reset" the log file we'll recreate it fresh
     else if ( requestUrl.toLowerCase().indexOf("reset") != -1) {
       recreateHistoryFile(true);
+      Serial.println("Log file has been reset.");
+      
+      // Redirect client to show the updated page
+      client.print("<html><head><meta http-equiv=\"refresh\" content=\"0; url=http://");
+      client.print(Ethernet.localIP());
+      client.println("/log\"></head></html>");
     }
-	
+    // test outage
+    else if ( requestUrl.toLowerCase().indexOf("test1") != -1) {
+      test = 1;
+    }
+    // test outage
+    else if ( requestUrl.toLowerCase().indexOf("test2") != -1) {
+      test = 2;
+    }
+  
     delay(250);                                         // give the web browser time to receive the data
     client.stop();                                      // close the connection
     Serial.println("client disconnected");
@@ -382,7 +410,7 @@ void recreateHistoryFile(boolean createAnew) {
     if (SD.exists(fullLog.c_str())) {
       SD.remove(fullLog.c_str());
     }
-	
+  
     File myFile = SD.open(fullLog.c_str(), FILE_WRITE);
     myFile.println("Outage Tracker Log Event History<br>");
     myFile.println("********************************<br>");
@@ -411,7 +439,7 @@ time_t getNtpTime() {
         secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
         secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
         secsSince1900 |= (unsigned long)packetBuffer[43];
-		
+    
         // Check if we need to enable/disable DST
         if (adjustForDST) {
           long utcEpoch = secsSince1900 - 2208988800UL;
@@ -437,7 +465,7 @@ void dstCheck(long utcEpoch) {
   int xSunday = (yr + yr/4 + 2) % 7;                    // Remainder will identify which day of month is Sunday
                                                         // by subtracting x from the one or two week window.
                                                         // First two weeks for March and first week for November.
-								  
+                  
   // *********** DST BEGINS on 2nd Sunday of March @ 2:00 AM *********
   if(mnth == 3 && dy == (14 - xSunday) && hr >= 2) {
     dstAdjustment = 1;
