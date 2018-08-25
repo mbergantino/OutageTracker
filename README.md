@@ -22,12 +22,20 @@ EthernetServer eServer(80);   // Specifying what port the Web Service will liste
 
 
 ## Parts List
- - Teensy 3.1/3.2 - $20 - https://www.pjrc.com/store/teensy32.html
- - 32.768 KHz RTC Clock Crystal - <$0.50 - https://www.digikey.com/products/en?mpart=ECS-.327-12.5-13X
- - WIZ820io/WIZ850io Networking - $20 - https://www.digikey.com/product-detail/en/wiznet/WIZ850IO/1278-1043-ND/8789619
- - WIZ Adapter with SD card reader - $6 - https://www.pjrc.com/store/wiz820_sd_adaptor.html
- - Power Management (MAX1555) Module and Battery Harness - $10 - https://www.tindie.com/products/onehorse/lipo-battery-charger-add-on-for-teensy-31/ Spec Sheet: https://datasheets.maximintegrated.com/en/ds/MAX1551-MAX1555.pdf
- - JST LiPo battery - $10 - 1.2Ah: https://www.adafruit.com/product/258 or $13 - 2Ah: https://www.adafruit.com/product/2011
+ - Teensy 3.1/3.2
+   - $20 - https://www.pjrc.com/store/teensy32.html
+ - 32.768 KHz RTC Clock Crystal 
+   - <$0.50 - https://www.digikey.com/products/en?mpart=ECS-.327-12.5-13X
+ - WIZ820io/WIZ850io Networking 
+   - $20 - https://www.digikey.com/product-detail/en/wiznet/WIZ850IO/1278-1043-ND/8789619
+ - WIZ Adapter with SD card reader 
+   - $6 - https://www.pjrc.com/store/wiz820_sd_adaptor.html
+ - Power Management (MAX1555) Module and Battery Harness 
+   - $10 - https://www.tindie.com/products/onehorse/lipo-battery-charger-add-on-for-teensy-31/ 
+   - Spec Sheet: https://datasheets.maximintegrated.com/en/ds/MAX1551-MAX1555.pdf
+ - JST LiPo battery (these are just some options):
+   - $10 - 1.2Ah: https://www.adafruit.com/product/258 
+   - $13 - 2Ah: https://www.adafruit.com/product/2011
 
  
 ## Technical Notes
