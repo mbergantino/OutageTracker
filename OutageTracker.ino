@@ -144,6 +144,7 @@ void setup() {
   
   Serial.println("All Setup Processes Completed Successfully!");
 }
+void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
 void loop() {
   // Process interrupts here as opposed to when Pin state is changing as we have ~infinite time here
@@ -210,7 +211,12 @@ void checkOutageStatus() {
 
 void outageStarting() {
   outageStarted = now();
-  Serial.print("An outage has begun: ");
+  if (test == 0) {
+    Serial.print("An outage has begun: ");
+  }
+  else {
+    Serial.print("A test outage has begun: ");
+  }
   Serial.println(assembleTime(outageStarted));
   
   // Start fresh as we don't have any use for stale data and only want 1 line in this file any ways
@@ -220,7 +226,9 @@ void outageStarting() {
   
   // Write Start Time to temp file
   File myFile = SD.open(tmpFile.c_str(), FILE_WRITE);
-  myFile.print(outageStarted);
+  Serial.print("Writing timestamp to tmpFile: ");
+  Serial.println(outageStarted);
+  myFile.println(outageStarted);
   myFile.close();
 }
 
@@ -234,19 +242,29 @@ bool outageFinished() {
       return false;
     }
   
-    // Read from temp file
+    // Read value from temp file
     File myFile = SD.open(tmpFile.c_str(), FILE_READ);
-    outageStarted = myFile.read();
+    outageStarted = myFile.readStringUntil('\n').toInt();
+    Serial.print("Found tmpFile content of: ");
+    Serial.println(outageStarted);
     myFile.close();
   }
   
   // Write same to long term log
   File myFile = SD.open(fullLog.c_str(), FILE_WRITE);   // Again note: we can only open one file at a time
-  String message = "Outage Event - Started: " + assembleTime(outageStarted) +
-             " Ended: " + assembleTime(outageEnded) +
-                   " Duration: " + breakoutTime(outageEnded-outageStarted) + "<br>";
+  String message = "";
+  if (test == 0) {
+    message += "Outage ";
+  }
+  else {
+    message += "Test ";
+  }
+  message += "Event - Started: " + assembleTime(outageStarted) +
+             " Ended: "          + assembleTime(outageEnded)   +
+             " Duration: "       + breakoutTime(outageEnded-outageStarted);
   Serial.println(message);
-  myFile.println(message);
+  myFile.print(message);
+  myFile.println("<br>");
   myFile.close();
   
   // Clear tracker
@@ -314,8 +332,8 @@ String assembleTime(time_t t) {
   return time;
 }
 
+// listen for incoming clients
 void webServerService() {
-  // listen for incoming clients
   
   EthernetClient client = eServer.available();          // Start Web Server Service
   String requestUrl = "";                               // Where we'll store the request URL string
@@ -357,16 +375,17 @@ void webServerService() {
     }
   
     // Send web page content
-    if (requestUrl.length() != 0 && requestUrl.startsWith("GET")) {
+    if (requestUrl.startsWith("GET")) {
       requestUrl = requestUrl.substring(4,requestUrl.length());     // Remove "GET " from the front
       requestUrl = requestUrl.substring(0,requestUrl.indexOf(" ")); // Trim at the space
     }
     Serial.print("Request URL: ");
     Serial.println(requestUrl);
+    
     // For any blank or request that asks for the "log" file we'll feed it up
-    if ( requestUrl.length() == 0 || 
-      requestUrl.toLowerCase().indexOf("get / ") != -1 || 
-      requestUrl.toLowerCase().indexOf("log") != -1) {
+    if ( requestUrl.length() == 0 ||
+         requestUrl.toLowerCase().equals("/") ||
+         requestUrl.toLowerCase().equals("/log") ) {
       File webFile = SD.open(fullLog.c_str(), FILE_READ);        // open web page file
       if (webFile) {
         while(webFile.available()) {
@@ -380,7 +399,7 @@ void webServerService() {
       }
     }
     // For any request that asks to "reset" the log file we'll recreate it fresh
-    else if ( requestUrl.toLowerCase().indexOf("reset") != -1) {
+    else if (requestUrl.toLowerCase().equals("/reset")) {
       recreateHistoryFile(true);
       Serial.println("Log file has been reset.");
       
@@ -389,16 +408,42 @@ void webServerService() {
       client.print(Ethernet.localIP());
       client.println("/log\"></head></html>");
     }
-    // test outage
-    else if ( requestUrl.toLowerCase().indexOf("test1") != -1) {
+    // test short outage
+    else if (requestUrl.toLowerCase().equals("/test1")) {
+      Serial.println("Starting Test 1...");
       test = 1;
+      
+      // Redirect client to show the updated page
+      client.print("<html><head><meta http-equiv=\"refresh\" content=\"32; url=http://");
+      client.print(Ethernet.localIP());
+      client.print("/log\"></head><body>");
+      client.print("Starting Test 1...");
+      client.println("</body></html>");
     }
-    // test outage
-    else if ( requestUrl.toLowerCase().indexOf("test2") != -1) {
+    // test long outage
+    else if (requestUrl.toLowerCase().equals("/test2")) {
+      Serial.println("Starting Test 2...");
       test = 2;
+      
+      // Redirect client to show the updated page
+      client.print("<html><head><meta http-equiv=\"refresh\" content=\"332; url=http://");
+      client.print(Ethernet.localIP());
+      client.print("/log\"></head><body>");
+      client.print("Starting Test 2...");
+      client.println("</body></html>");
+    }
+    // test restart during outage
+    else if (requestUrl.toLowerCase().equals("/test3")) {
+      client.println("Starting Test 3...");
+      Serial.println("Starting Test 3...");
+      test = 3;
+
+      outageStarting();
+      delay(10000);
+      resetFunc();                                      // Restart
     }
   
-    delay(250);                                         // give the web browser time to receive the data
+    delay(1000);                                        // give the web browser time to receive the data
     client.stop();                                      // close the connection
     Serial.println("client disconnected");
   }
@@ -513,3 +558,4 @@ void sendNTPpacket(IPAddress &address) {
   Udp.write(packetBuffer, NTP_PACKET_SIZE);
   Udp.endPacket();
 }
+
