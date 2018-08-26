@@ -40,7 +40,6 @@ const int UPDATE_FREQ = SECS_PER_HOUR;      // Frequency to update System Time (
 const int TIMEZONE    = -5;                 // Eastern Standard Time (USA) ... go Red Sox
 boolean adjustForDST  = true;               // true = update on a schedule to +1 to TIMEZONE
 int dstAdjustment     = 0;                  // DST adjustment
-time_t lastUpdate     = 0;                  // when the digital clock was last udpated
 time_t outageStarted  = 0;                  // when the outage began
 
 //SD Vars
@@ -89,10 +88,10 @@ void setup() {
   
   // Sync NTP on every boot up
   setSyncProvider(getNtpTime);
+  setSyncInterval(UPDATE_FREQ);
   delay(100);
-  lastUpdate = now();
   Serial.print("Current system time: ");
-  Serial.println(assembleTime(lastUpdate));
+  Serial.println(assembleTime(now()));
   
   // Setup SD Card
   Serial.println("Initializing SD card...");
@@ -154,15 +153,6 @@ void loop() {
   if (!onBB && dhcpEnabled) {
     Ethernet.maintain();
   }
-  
-  // When on line power, compare current time last NTP sync time to update system time at scheduled interval
-  if (!onBB && now() > (lastUpdate + UPDATE_FREQ)) { 
-    setSyncProvider(getNtpTime);
-    delay(100);
-    lastUpdate = now();
-    Serial.print("System time updated to: ");
-    Serial.println(assembleTime(lastUpdate));
-  }
 
   // Process web requests
   if (webService) {
@@ -172,7 +162,7 @@ void loop() {
 
 void checkOutageStatus() {
   // If testing is in progress (but not finished) keep looping
-  if ( test == 1 && onBB && ((now()-outageStarted) < 30) ) { // 30 second outage
+  if ( test == 1 && onBB && ((now()-outageStarted) < 30) ) {        // 30 second outage
     return;
   }
   if ( test == 2 && onBB && ((now()-outageStarted) < (5*60+30)) ) { //5min 30sec outage
@@ -201,11 +191,11 @@ void checkOutageStatus() {
     onBB = false;
   }
   else if ( (digitalRead(backupPin) == HIGH || test != 0) && !onBB) {
-    // We just went on battery backup power, so start a timer
-    outageStarting();
-  
     // Set the flag
     onBB = true;
+    
+    // We just went on battery backup power, so start a timer
+    outageStarting();
   }
 }
 
@@ -414,10 +404,11 @@ void webServerService() {
       test = 1;
       
       // Redirect client to show the updated page
-      client.print("<html><head><meta http-equiv=\"refresh\" content=\"32; url=http://");
+      client.print("<html><head><meta http-equiv=\"refresh\" content=\"33; url=http://");
       client.print(Ethernet.localIP());
       client.print("/log\"></head><body>");
-      client.print("Starting Test 1...");
+      client.print("Starting Test 1 at ");
+      client.print(assembleTime(now()));
       client.println("</body></html>");
     }
     // test long outage
@@ -426,15 +417,17 @@ void webServerService() {
       test = 2;
       
       // Redirect client to show the updated page
-      client.print("<html><head><meta http-equiv=\"refresh\" content=\"332; url=http://");
+      client.print("<html><head><meta http-equiv=\"refresh\" content=\"333; url=http://");
       client.print(Ethernet.localIP());
       client.print("/log\"></head><body>");
-      client.print("Starting Test 2...");
+      client.print("Starting Test 2 at ");
+      client.print(assembleTime(now()));
       client.println("</body></html>");
     }
     // test restart during outage
     else if (requestUrl.toLowerCase().equals("/test3")) {
-      client.println("Starting Test 3...");
+      client.print("Starting Test 3 at ");
+      client.println(assembleTime(now()));
       Serial.println("Starting Test 3...");
       test = 3;
 
@@ -461,13 +454,18 @@ void recreateHistoryFile(boolean createAnew) {
     myFile.println("********************************<br>");
     myFile.close();
   }
-}
+}  
 
 time_t getNtpTime() {
+  // Skip this update cycle if on Battery power
+  if (onBB) {
+    return now();
+  }
+  
   while (1) {
     Serial.println("Starting NTP sync");
     while (Udp.parsePacket() > 0) ;                     // discard any previously received packets
-    Serial.println("Transmiting NTP Request");
+    Serial.println("Transmitting NTP Request");
     sendNTPpacket(timeServer);
     uint32_t beginWait = millis();
     while (millis() - beginWait < 1500) {               // try for up to 1.5 seconds
@@ -494,12 +492,13 @@ time_t getNtpTime() {
         return secsSince1900 - 2208988800UL + ((TIMEZONE + dstAdjustment) * SECS_PER_HOUR);
       }
     }
-    // Retries to account for when we have no internet yet, thanks for nothing modem
+    
+    // Retries to account for when we have no internet yet, thanks for nothing ISP modem
     Serial.println("Failed to contact NTP server, maybe internet isn't working. Retrying in 10 seconds...");
     delay(10000); //msec
   }
   
-  return 0; // return 0 if unable to get the time
+  return 0; // unable to get the time
 }
 
 void dstCheck(long utcEpoch) {
