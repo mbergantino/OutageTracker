@@ -49,6 +49,7 @@ const String fullLog  = "outage.log";       // Permanent log file
 
 //Testing Vars
 int test = 0;                               // Test 1 = 30sec outage, Test 2 = 5min 30sec outage
+#define SCB_AIRCR (*(volatile uint32_t *)0xE000ED0C) // Application Interrupt and Reset Control location
 
 void setup() {
   // General setup
@@ -143,7 +144,6 @@ void setup() {
   
   Serial.println("All Setup Processes Completed Successfully!");
 }
-void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
 void loop() {
   // Process interrupts here as opposed to when Pin state is changing as we have ~infinite time here
@@ -363,15 +363,18 @@ void webServerService() {
         }
       }
     }
-  
-    // Send web page content
+
+    Serial.print("Request: ");
+    Serial.println(requestUrl);
+    
+    // Get the requested endpoint
     if (requestUrl.startsWith("GET")) {
       requestUrl = requestUrl.substring(4,requestUrl.length());     // Remove "GET " from the front
       requestUrl = requestUrl.substring(0,requestUrl.indexOf(" ")); // Trim at the space
+      Serial.print("Requested URL: ");
+      Serial.println(requestUrl);
     }
-    Serial.print("Request URL: ");
-    Serial.println(requestUrl);
-    
+
     // For any blank or request that asks for the "log" file we'll feed it up
     if ( requestUrl.length() == 0 ||
          requestUrl.toLowerCase().equals("/") ||
@@ -391,7 +394,12 @@ void webServerService() {
     // For any request that asks to "reset" the log file we'll recreate it fresh
     else if (requestUrl.toLowerCase().equals("/reset")) {
       recreateHistoryFile(true);
-      Serial.println("Log file has been reset.");
+      Serial.println("Historical log has been cleared.");
+
+      if (SD.exists(tmpFile.c_str())) {  
+        SD.remove(tmpFile.c_str());
+        Serial.println("Temp file has been deleted.");                    
+      }
       
       // Redirect client to show the updated page
       client.print("<html><head><meta http-equiv=\"refresh\" content=\"0; url=http://");
@@ -426,14 +434,22 @@ void webServerService() {
     }
     // test restart during outage
     else if (requestUrl.toLowerCase().equals("/test3")) {
+      // Redirect client to show the updated page
+      client.print("<html><head><meta http-equiv=\"refresh\" content=\"25; url=http://");
+      client.print(Ethernet.localIP());
+      client.print("/log\"></head><body>");
       client.print("Starting Test 3 at ");
-      client.println(assembleTime(now()));
+      client.print(assembleTime(now()));
+      client.println("</body></html>");
       Serial.println("Starting Test 3...");
       test = 3;
 
       outageStarting();
+      Serial.end();                                     // clears the serial monitor, if its being used
+      delay(1000);
+      client.stop();                                    // close the connection
       delay(10000);
-      resetFunc();                                      // Restart
+      SCB_AIRCR = 0x05FA0004;                           // write value for restart
     }
   
     delay(1000);                                        // give the web browser time to receive the data
@@ -454,16 +470,17 @@ void recreateHistoryFile(boolean createAnew) {
     myFile.println("********************************<br>");
     myFile.close();
   }
-}  
+}
 
 time_t getNtpTime() {
   // Skip this update cycle if on Battery power
-  if (onBB) {
+  if (onBB) { // && timeStatus() == timeSet) {
     return now();
   }
   
   while (1) {
     Serial.println("Starting NTP sync");
+    
     while (Udp.parsePacket() > 0) ;                     // discard any previously received packets
     Serial.println("Transmitting NTP Request");
     sendNTPpacket(timeServer);
