@@ -60,7 +60,8 @@ I installed a Coin Battery Holder when I installed the crystal (as shown here: h
 
 ## Planned Improvements
 
+The program should attempt to recover the time in case the coin battery is used (in place of the NTP sync on startup). In that case, if time is ever lost then you can assume if time is ever lost that the coin battery is dead and this fact can be alerted to the user.
+
 Instead of being limited to a Web Service, I'd like to introduce support for uploading results to Google Docs. I saw some mentions of this with an Arduino here:
  - https://www.instructables.com/id/Post-to-Google-Docs-with-Arduino/
  - https://temboo.com/arduino/others/update-google-spreadsheet
- 
